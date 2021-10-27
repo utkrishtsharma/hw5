@@ -63,8 +63,30 @@ sobel_filtered_pixel(float *s, int i, int j , int ncols, int nrows, float *gx, f
 
    // ADD CODE HERE:  add your code here for computing the sobel stencil computation at location (i,j)
    // of input s, returning a float
+    float gradX = gx[0] * s[(i * ncols + j) - ncols - 1] +
+                   gx[1] * s[(i * ncols + j) - ncols] +
+                   gx[2] * s[(i * ncols + j) - (ncols + 1)] +
+                   gx[3] * s[(i * ncols + j) - 1] +
+                   gx[4] * s[(i * ncols + j)] +
+                   gx[5] * s[(i * ncols + j) + 1] +
+                   gx[6] * s[(i * ncols + j) + ncols - 1] +
+                   gx[7] * s[(i * ncols + j) + ncols] +
+                   gx[8] * s[(i * ncols + j) + ncols + 1];
 
-   return t;
+     float gradY = gy[0] * s[(i * ncols + j) - ncols - 1] +
+                   gy[1] * s[(i * ncols + j) - ncols] +
+                   gy[2] * s[(i * ncols + j) - ncols + 1] +
+                   gy[3] * s[(i * ncols + j) - 1] +
+                   gy[4] * s[(i * ncols + j)] +
+                   gy[5] * s[(i * ncols + j) + 1] +
+                   gy[6] * s[(i * ncols + j) + ncols - 1] +
+                   gy[7] * s[(i * ncols + j) + ncols] +
+                   gy[8] * s[(i * ncols + j) + ncols + 1];
+
+     float gradXsquared = gradX * gradX;
+     float gradYsquared = gradY * gradY;
+
+     return sqrt(gradXsquared + gradYsquared);
 }
 
 //
@@ -95,7 +117,19 @@ sobel_kernel_gpu(float *s,  // source image pixels
 
    // because this is CUDA, you need to use CUDA built-in variables to compute an index and stride
    // your processing motif will be very similar here to that we used for vector add in Lab #2
+   
+   int dim = blockDim.x * gridDim.x;
+   int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+   for (int i = index; i < n; i += dim){
+      int x = i / ncols;
+      int y = i % ncols;
+
+      d[i] = sobel_filtered_pixel(s, x, y, ncols, nrows, gx, gy);
+     
+   }
 }
+
 
 int
 main (int ac, char *av[])
@@ -154,11 +188,14 @@ main (int ac, char *av[])
    cudaMemPrefetchAsync((void *)device_gy, sizeof(Gy)*sizeof(float), deviceID);
 
    // set up to run the kernel
-   int nBlocks=1, nThreadsPerBlock=256;
+   int nBlocks=32, nThreadsPerBlock=1;
 
    // ADD CODE HERE: insert your code here to set a different number of thread blocks or # of threads per block
 
-
+   if (ac > 1){
+      nThreadsPerBlock = atoi(av[1]);
+      nBlocks = atoi(av[2]);
+   }
 
    printf(" GPU configuration: %d blocks, %d threads per block \n", nBlocks, nThreadsPerBlock);
 

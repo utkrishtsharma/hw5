@@ -1,0 +1,1 @@
+/usr/common/software/llvm/13_rc3/bin/clang++ -O3 -DNDEBUG -fopenmp CMakeFiles/sobel_cpu.dir/sobel_cpu.cpp.o -o sobel_cpu 

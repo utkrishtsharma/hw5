@@ -19,13 +19,13 @@
 
 // this is the original laughing zebra image
 //static char input_fname[] = "../data/zebra-gray-int8";
-//static int data_dims[2] = {3556, 2573}; // width=ncols, height=nrows
+//static int data_dims[2] = {3556, 2573};
 //char output_fname[] = "../data/processed-raw-int8-cpu.dat";
 
 // this one is a 4x augmentation of the laughing zebra
 static char input_fname[] = "../data/zebra-gray-int8-4x";
-static int data_dims[2] = {7112, 5146}; // width=ncols, height=nrows
-char output_fname[] = "../data/processed-raw-int8-4x-cpu.dat";
+static int data_dims[2] = {7112, 5146};
+char output_fname[] = "../data/processed-raw-int8-4x-omp-offload.dat";
 
 
 // see https://en.wikipedia.org/wiki/Sobel_operator
@@ -35,7 +35,7 @@ char output_fname[] = "../data/processed-raw-int8-4x-cpu.dat";
 //
 // input: float *s - the source data
 // input: int i,j - the location of the pixel in the source data where we want to center our sobel convolution
-// input: int nrows, ncols: the dimensions of the input and output image buffers
+// input: int rows, cols: the dimensions of the input and output image buffers
 // input: float *gx, gy:  arrays of length 9 each, these are logically 3x3 arrays of sobel filter weights
 //
 // this routine computes Gx=gx*s centered at (i,j), Gy=gy*s centered at (i,j),
@@ -47,12 +47,45 @@ float
 sobel_filtered_pixel(float *s, int i, int j , int ncols, int nrows, float *gx, float *gy)
 {
 
-   float t=0.0;
+  float t=0.0;
 
    // ADD CODE HERE: add your code here for computing the sobel stencil computation at location (i,j)
    // of input s, returning a float
+   //9 cause length of array (3x3 sobel filter weights)
 
-   return t;
+
+
+   //detects where gradient is detected in the horizontal dimension of the image
+   float gradientX = gx[0]*s[(i * ncols + j)-ncols-1] + 
+                     gx[1]*s[(i * ncols + j)-ncols] + 
+                     gx[2]*s[(i * ncols + j)-(ncols+1)] + 
+                     gx[3]*s[(i * ncols + j)-1] + 
+                     gx[4]*s[(i * ncols + j)] + 
+                     gx[5]*s[(i * ncols + j)+1] + 
+                     gx[6]*s[(i * ncols + j)+ncols-1] + 
+                     gx[7]*s[(i * ncols + j)+ncols] + 
+                     gx[8]*s[(i * ncols + j)+ncols+1];
+   
+
+
+   //detects where gradient is detected in the vertical dimension of the image
+   float gradientY = gy[0]*s[(i * ncols + j)-ncols-1] + 
+                     gy[1]*s[(i * ncols + j)-ncols] + 
+                     gy[2]*s[(i * ncols + j)-(ncols+1)] + 
+                     gy[3]*s[(i * ncols + j)-1] + 
+                     gy[4]*s[(i * ncols + j)] + 
+                     gy[5]*s[(i * ncols + j)+1] + 
+                     gy[6]*s[(i * ncols + j)+ncols-1] + 
+                     gy[7]*s[(i * ncols + j)+ncols] + 
+                     gy[8]*s[(i * ncols + j)+ncols+1];
+
+ 
+
+   float gradientXSqaured = pow(gradientX, 2);
+   float gradientYSqaured = pow(gradientY, 2);
+
+   return sqrt(gradientXSqaured + gradientYSqaured);
+
 }
 
 //
@@ -62,7 +95,7 @@ sobel_filtered_pixel(float *s, int i, int j , int ncols, int nrows, float *gx, f
 //
 // input: float *s - the source data, size=rows*cols
 // input: int i,j - the location of the pixel in the source data where we want to center our sobel convolution
-// input: int nrows, ncols: the dimensions of the input and output image buffers
+// input: int rows, cols: the dimensions of the input and output image buffers
 // input: float *gx, gy:  arrays of length 9 each, these are logically 3x3 arrays of sobel filter weights
 // output: float *d - the buffer for the output, size=rows*cols.
 //
@@ -79,13 +112,13 @@ do_sobel_filtering(float *in, float *out, int ncols, int nrows)
    height=nrows;
    nvals=width*height;
 
-// define the data mapping from the host to the device
-// some of the data we only need to send: in, Gx, Gy, width, height
-// some of the data we only need to retrieve: out
+   // define the data mapping from the host to the device
+   // some of the data we only need to send: in, Gx, Gy, width, height
+   // some of the data we only need to retrieve: out
 
-// ADD CODE HERE: you will need to add one more item to this line to map the "out" data array such that 
-// it is returned from the the device after the computation is complete. everything else here is input.
-#pragma omp target data map(to:in[0:nvals]) map(to:width) map(to:height) map(to:Gx[0:9]) map(to:Gy[0:9]) 
+   // ADD CODE HERE: you will need to add one more item to this line to map the "out" data array such that 
+   // it is returned from the the device after the computation is complete. everything else here is input.
+   #pragma omp target data map(to:in[0:nvals]) map(to:width) map(to:height) map(to:Gx[0:9]) map(to:Gy[0:9]) map(tofrom:out[0:nvals])
    {
 
    // ADD CODE HERE: insert your code here that iterates over every (i,j) of input,  makes a call
@@ -95,7 +128,25 @@ do_sobel_filtering(float *in, float *out, int ncols, int nrows)
    // You may also wish to consider additional clauses that might be appropriate here to increase parallelism 
    // if you are using nested loops.
 
+     //we initialise the ouput file with the same size as input and all values as 0.0
+
+      for (int x = 0; x < nvals; x++){
+         out[x] = 0.0;
+      }
+
+      int rows_length = nrows - 1;
+      int cols_length = ncols - 1;
+
+      #pragma omp target teams distribute parallel for collapse(2)
+      for (int row = 1; row < rows_length; row++) {
+         for (int col = 1; col < cols_length; col++) {
+            out[col + row*ncols] = sobel_filtered_pixel(in, row, col, ncols, nrows, Gx, Gy);
+         }
+      }
+
    } // pragma omp target data
+
+ 
 }
 
 
@@ -140,6 +191,7 @@ main (int ac, char *av[])
    // do the processing =======================
    std::chrono::time_point<std::chrono::high_resolution_clock> start_time = std::chrono::high_resolution_clock::now();
 
+   // do_sobel_filtering(in_data_floats, out_data_floats, data_dims);
    do_sobel_filtering(in_data_floats, out_data_floats, data_dims[0], data_dims[1]);
 
    std::chrono::time_point<std::chrono::high_resolution_clock> end_time = std::chrono::high_resolution_clock::now();

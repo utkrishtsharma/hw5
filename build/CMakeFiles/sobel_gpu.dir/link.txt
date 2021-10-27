@@ -1,0 +1,1 @@
+/usr/common/software/sles15_cgpu/gcc/8.3.0/bin/g++ CMakeFiles/sobel_gpu.dir/sobel_gpu.cu.o -o sobel_gpu  -lcudadevrt -lcudart_static -lrt -lpthread -ldl  -L"/usr/common/software/sles15_cgpu/cuda/11.2.1/targets/x86_64-linux/lib/stubs" -L"/usr/common/software/sles15_cgpu/cuda/11.2.1/targets/x86_64-linux/lib"

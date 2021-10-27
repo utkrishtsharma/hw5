@@ -1,0 +1,5 @@
+/global/homes/u/utkrisht/hw5/sobel-harness-instructional/build/CMakeFiles/rebuild_cache.dir
+/global/homes/u/utkrisht/hw5/sobel-harness-instructional/build/CMakeFiles/sobel_gpu.dir
+/global/homes/u/utkrisht/hw5/sobel-harness-instructional/build/CMakeFiles/edit_cache.dir
+/global/homes/u/utkrisht/hw5/sobel-harness-instructional/build/CMakeFiles/sobel_cpu.dir
+/global/homes/u/utkrisht/hw5/sobel-harness-instructional/build/CMakeFiles/sobel_cpu_omp_offload.dir

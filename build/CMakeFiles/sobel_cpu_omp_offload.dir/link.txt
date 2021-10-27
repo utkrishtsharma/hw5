@@ -1,0 +1,1 @@
+/usr/common/software/llvm/13_rc3/bin/clang++ -O3 -DNDEBUG -Ofast -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda CMakeFiles/sobel_cpu_omp_offload.dir/sobel_cpu_omp_offload.cpp.o -o sobel_cpu_omp_offload 
